@@ -60,7 +60,7 @@ export default defineConfig({
                 link: "/official/ch03-03-how-functions-work",
               },
               {
-                text: "3.4.Functions",
+                text: "3.4.Comments",
                 link: "/official/ch03-04-comments",
               },
               {
