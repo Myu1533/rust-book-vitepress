@@ -32,7 +32,9 @@ Comments can also be placed at the end of lines containing code:
 <span class="filename">Filename: src/main.rs</span>
 
 ```rust
-{{#rustdoc_include ../listings/ch03-common-programming-concepts/no-listing-24-comments-end-of-line/src/main.rs}}
+fn main() {
+    let lucky_number = 7; // I’m feeling lucky today
+}
 ```
 
 都你大部分时候使用的是下面的格式，注释与代码分离，写在代码上面一行：
@@ -42,7 +44,10 @@ separate line above the code it’s annotating:
 <span class="filename">Filename: src/main.rs</span>
 
 ```rust
-{{#rustdoc_include ../listings/ch03-common-programming-concepts/no-listing-25-comments-above-line/src/main.rs}}
+fn main() {
+    // I’m feeling lucky today
+    let lucky_number = 7;
+}
 ```
 
 Rust 也有另外一种注释，文档注释，我们将在十四章讨论 [“Publishing a Crate to Crates.io”][publishing]
