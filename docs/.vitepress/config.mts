@@ -49,7 +49,7 @@ export default defineConfig({
             items: [
               {
                 text: "3.1.Variables and Mutability",
-                link: "/official/ch03-01-variables-mutability",
+                link: "/official/ch03-01-variables-and-mutability",
               },
               {
                 text: "3.2.Data Types",
