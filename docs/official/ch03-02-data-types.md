@@ -1,8 +1,13 @@
-## Data Types
+# Data Types 数据类型
+
+Rust 中每种值都有确定的*数据类型*，可以帮助 Rust 的明确的知道怎么处理数据。我们将看看两种数据类型集合：标准类和混合类。
 
 Every value in Rust is of a certain _data type_, which tells Rust what kind of
 data is being specified so it knows how to work with that data. We’ll look at
 two data type subsets: scalar and compound.
+
+记住 Rust 是*静态类型*语言，也就是说编译的时候必须清楚的指明所有变量的类型。编译器通常知道我们所要使用的数据类型，并且知道怎么处理它。在例子中，例如我们在[“Comparing the Guess to the Secret
+Number”][comparing-the-guess-to-the-secret-number]使用`parse`将`字符串`类型转换为`数字`类型，我们必须声明类型：
 
 Keep in mind that Rust is a _statically typed_ language, which means that it
 must know the types of all variables at compile time. The compiler can usually
@@ -16,23 +21,45 @@ Chapter 2, we must add a type annotation, like this:
 let guess: u32 = "42".parse().expect("Not a number!");
 ```
 
+如果我们没有在代码前声明`: u32`类型，Rust 将报错，编译器需要知道我们所使用的类型的更多的信息：
+
 If we don’t add the `: u32` type annotation shown in the preceding code, Rust
 will display the following error, which means the compiler needs more
 information from us to know which type we want to use:
 
 ```console
-{{#include ../listings/ch03-common-programming-concepts/output-only-01-no-type-annotations/output.txt}}
+$ cargo build
+   Compiling no_type_annotations v0.1.0 (file:///projects/no_type_annotations)
+error[E0282]: type annotations needed
+ --> src/main.rs:2:9
+  |
+2 |     let guess = "42".parse().expect("Not a number!");
+  |         ^^^^^
+  |
+help: consider giving `guess` an explicit type
+  |
+2 |     let guess: _ = "42".parse().expect("Not a number!");
+  |              +++
+
+For more information about this error, try `rustc --explain E0282`.
+error: could not compile `no_type_annotations` due to previous error
 ```
+
+你将看到其他数据类型的不同声明方式。
 
 You’ll see different type annotations for other data types.
 
-### Scalar Types
+### Scalar Types 标量类型
+
+一个标量类型是单一数值。Rust 有 4 中主要的标量类型: 整型，浮点数，布尔值以及字符。其他编程语言里面也有。看看他们在 Rust 里怎么运行的：
 
 A _scalar_ type represents a single value. Rust has four primary scalar types:
 integers, floating-point numbers, Booleans, and characters. You may recognize
 these from other programming languages. Let’s jump into how they work in Rust.
 
-#### Integer Types
+#### Integer Types 整型
+
+整数时不包含的小数部分的数字。第二章我们用整型类型`u32`表示。这个类型标识这是一个占用 32 位空间的无符号的整型。表 3-1 展示了 Rust 的内置整型。我们可以使用下面任意一种描述整型。
 
 An _integer_ is a number without a fractional component. We used one integer
 type in Chapter 2, the `u32` type. This type declaration indicates that the
@@ -52,6 +79,8 @@ the type of an integer value.
 | 128-bit | `i128`  | `u128`   |
 | arch    | `isize` | `usize`  |
 
+任何一种都可以是有符号或者无符号并且有明确的大小。_有符号_ 和 _无符号_ 表示一个数字是否需要符号，尤其是负数的时候。就像在纸上写数字一样：有符号数字前面有加号或者减号；然而，它没有符号的时候，被看作正数。有符号数据用[two’s complement][twos-complement]的方法表示。
+
 Each variant can be either signed or unsigned and has an explicit size.
 _Signed_ and _unsigned_ refer to whether it’s possible for the number to be
 negative—in other words, whether the number needs to have a sign with it
@@ -62,22 +91,33 @@ when it’s safe to assume the number is positive, it’s shown with no sign.
 Signed numbers are stored using [two’s complement][twos-complement]<!-- ignore
 --> representation.
 
+有符号的不同类型的存储范围-(2<sup>n - 1</sup>) to 2<sup>n -
+1</sup> - 1，n 表示不同类型占用的字节数。例如`i8`范围 -(2<sup>7</sup>) to 2<sup>7</sup> - 1，也就是
+-128 到 127。
+无符号的不同类型的存储范围 0 to 2<sup>n</sup> - 1，因此`u8`的范围是 2<sup>8</sup> - 1，即 0-255。
+
 Each signed variant can store numbers from -(2<sup>n - 1</sup>) to 2<sup>n -
 1</sup> - 1 inclusive, where _n_ is the number of bits that variant uses. So an
 `i8` can store numbers from -(2<sup>7</sup>) to 2<sup>7</sup> - 1, which equals
 -128 to 127. Unsigned variants can store numbers from 0 to 2<sup>n</sup> - 1,
 so a `u8` can store numbers from 0 to 2<sup>8</sup> - 1, which equals 0 to 255.
 
+另外，`i的大小` 和 `u的大小`依赖于程序所在的电脑架构，在“架构”表里列举了：64 bits 代表你的电脑是 65 位架构
+，32 bits 表示你的电脑是 32 位的架构。
 Additionally, the `isize` and `usize` types depend on the architecture of the
 computer your program is running on, which is denoted in the table as “arch”:
 64 bits if you’re on a 64-bit architecture and 32 bits if you’re on a 32-bit
 architecture.
+
+我可以用表 3-2 里表示法表示整型。注意数字可以直接用数字加类型后缀表示，例如`57u8`，就表示数字类型。数字表示法也可以用`_`作为分割，让一个数字易读，例如`1_000`，与`1000`有相同的值。
 
 You can write integer literals in any of the forms shown in Table 3-2. Note
 that number literals that can be multiple numeric types allow a type suffix,
 such as `57u8`, to designate the type. Number literals can also use `_` as a
 visual separator to make the number easier to read, such as `1_000`, which will
 have the same value as if you had specified `1000`.
+
+<span class="caption">表 3-2: Rust 整型表达式</span>
 
 <span class="caption">Table 3-2: Integer Literals in Rust</span>
 
@@ -89,12 +129,19 @@ have the same value as if you had specified `1000`.
 | Binary           | `0b1111_0000` |
 | Byte (`u8` only) | `b'A'`        |
 
+现在清楚需要使用那种整型类型了吗？如果还不确定，Rust 的默认设置是开始的好地方：整型默认是`i32`。主流状况中你需要使用`isize` 或 `usize`是需要知道集合的序号。
+
 So how do you know which type of integer to use? If you’re unsure, Rust’s
 defaults are generally good places to start: integer types default to `i32`.
 The primary situation in which you’d use `isize` or `usize` is when indexing
 some sort of collection.
 
-> ##### Integer Overflow
+> ##### Integer Overflow 整型溢出
+>
+> 假如你有一个存储 0 到 255 的`u8`类型的变量。如果你想赋值一个超出边界的值，例如 256，整型溢出就发生了，会得到两种
+> 异常中的一个。如果你在调试模式编译时，Rust 会检查整型溢出，如果这发生，将在运行时引发程序*混乱*。Rust 会利用
+> 程序异常退出来中断混乱；这回将在第九章的[“Unrecoverable Errors with
+> `panic!`”][unrecoverable-errors-with-panic]深入讨论
 >
 > Let’s say you have a variable of type `u8` that can hold values between 0 and 255. If you try to change the variable to a value outside that range, such as
 > 256, _integer overflow_ will occur, which can result in one of two behaviors.
@@ -123,7 +170,7 @@ some sort of collection.
 > - Saturate at the value’s minimum or maximum values with the `saturating_*`
 >   methods.
 
-#### Floating-Point Types
+#### Floating-Point Types 浮点类型
 
 Rust also has two primitive types for _floating-point numbers_, which are
 numbers with decimal points. Rust’s floating-point types are `f32` and `f64`,
