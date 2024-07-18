@@ -140,7 +140,7 @@ some sort of collection.
 >
 > 假如你有一个存储 0 到 255 的`u8`类型的变量。如果你想赋值一个超出边界的值，例如 256，整型溢出就发生了，会得到两种
 > 异常中的一个。如果你在调试模式编译时，Rust 会检查整型溢出，如果这发生，将在运行时引发程序*混乱*。Rust 会利用
-> 程序异常退出来中断混乱；这回将在第九章的[“Unrecoverable Errors with
+> 程序异常退出来中断混乱；这将在第九章的[“Unrecoverable Errors with
 > `panic!`”][unrecoverable-errors-with-panic]深入讨论
 >
 > Let’s say you have a variable of type `u8` that can hold values between 0 and 255. If you try to change the variable to a value outside that range, such as
@@ -151,6 +151,8 @@ some sort of collection.
 > panics in more depth in the [“Unrecoverable Errors with
 > `panic!`”][unrecoverable-errors-with-panic]<!-- ignore --> section in Chapter 9.
 >
+> 当你在释出模式下编译，Rust 不会包含引起混乱的整型溢出的检查。相反，如果溢出发生，Rust 会提供一种二进制补码。简单来说，超过最大值的时候，类型会将超过的数值重设为该类型能处理的最小值。例如`u8`的例子，256 这个值会变为 0，257 会变为 1，以此类推。程序不会产生混乱，但是变量将会获得一个超出预期的值。整型溢出的包裹特性应当被当作异常。
+>
 > When you’re compiling in release mode with the `--release` flag, Rust does
 > _not_ include checks for integer overflow that cause panics. Instead, if
 > overflow occurs, Rust performs _two’s complement wrapping_. In short, values
@@ -160,11 +162,15 @@ some sort of collection.
 > variable will have a value that probably isn’t what you were expecting it to
 > have. Relying on integer overflow’s wrapping behavior is considered an error.
 >
+> 为了准确的处理可能产生的溢出，可以使用标准库中提供的处理数值类型的方法：
 > To explicitly handle the possibility of overflow, you can use these families
 > of methods provided by the standard library for primitive numeric types:
 >
+> - 将所有模式都都用`wrapping_*`包裹，例如`wrapping_add`.
 > - Wrap in all modes with the `wrapping_*` methods, such as `wrapping_add`.
+> - 如果使用了`checked_*`方法的溢出返回`None`。
 > - Return the `None` value if there is overflow with the `checked_*` methods.
+> -
 > - Return the value and a boolean indicating whether there was overflow with
 >   the `overflowing_*` methods.
 > - Saturate at the value’s minimum or maximum values with the `saturating_*`
@@ -172,24 +178,34 @@ some sort of collection.
 
 #### Floating-Point Types 浮点类型
 
+Rust 也有两个 10 进制的浮点数的原始类型。Rust 的浮点类型是`f32`和`f64`，也就是 32 位和 64 位。默认类型是`f64`,由于在现代 CPU 上，速度和`f32`一样，但是可以处理更多的精度。所有的浮点类型都带有标记。
+
 Rust also has two primitive types for _floating-point numbers_, which are
 numbers with decimal points. Rust’s floating-point types are `f32` and `f64`,
 which are 32 bits and 64 bits in size, respectively. The default type is `f64`
 because on modern CPUs, it’s roughly the same speed as `f32` but is capable of
 more precision. All floating-point types are signed.
 
+下面介绍一下浮点类型的操作
 Here’s an example that shows floating-point numbers in action:
 
 <span class="filename">Filename: src/main.rs</span>
 
 ```rust
-{{#rustdoc_include ../listings/ch03-common-programming-concepts/no-listing-06-floating-point/src/main.rs}}
+fn main() {
+  let x = 2.0;
+  let y: f32 = 3.0;
+}
 ```
+
+浮点类型数值符合 IEEE-754 标准。`f32`是单精度浮点数，`f64`是双精度浮点数。
 
 Floating-point numbers are represented according to the IEEE-754 standard. The
 `f32` type is a single-precision float, and `f64` has double precision.
 
-#### Numeric Operations
+#### Numeric Operations 数值操作
+
+Rust 支持基础的数学操作：加减乘除取余。整数除法下取整。以下是例子：
 
 Rust supports the basic mathematical operations you’d expect for all the number
 types: addition, subtraction, multiplication, division, and remainder. Integer
@@ -199,15 +215,31 @@ how you’d use each numeric operation in a `let` statement:
 <span class="filename">Filename: src/main.rs</span>
 
 ```rust
-{{#rustdoc_include ../listings/ch03-common-programming-concepts/no-listing-07-numeric-operations/src/main.rs}}
+fn main() {
+  let sum = 5 + 10;
+
+  let difference = 95.5 - 4.3;
+
+  let product = 4 * 30;
+
+  let quotient = 56.7 / 32.2;
+
+  let truncated = -5 / 3;
+
+  let remainder = 43 % 5;
+}
 ```
+
+每个表达式展示了数学运算的使用并计算了结果，并赋值给对应的变量。[AppendixB][appendix_b]里面包含了 Rust 提供的所有运算符。
 
 Each expression in these statements uses a mathematical operator and evaluates
 to a single value, which is then bound to a variable. [Appendix
 B][appendix_b]<!-- ignore --> contains a list of all operators that Rust
 provides.
 
-#### The Boolean Type
+#### The Boolean Type 布尔类型
+
+更其他语言一样，Rust 的布尔类型也有两个值：`true`和`false`。布尔类型占用一个字节。布尔类型的关键字是`bool`。例如：
 
 As in most other programming languages, a Boolean type in Rust has two possible
 values: `true` and `false`. Booleans are one byte in size. The Boolean type in
@@ -216,14 +248,22 @@ Rust is specified using `bool`. For example:
 <span class="filename">Filename: src/main.rs</span>
 
 ```rust
-{{#rustdoc_include ../listings/ch03-common-programming-concepts/no-listing-08-boolean/src/main.rs}}
+fn main() {
+  let t = true;
+
+  let f: bool = false;
+}
 ```
+
+通过条件控制来使用布尔类型，例如在`if`表达式中。我们建在[“ControlFlow”][control-flow]说明`if`的用法。
 
 The main way to use Boolean values is through conditionals, such as an `if`
 expression. We’ll cover how `if` expressions work in Rust in the [“Control
 Flow”][control-flow]<!-- ignore --> section.
 
-#### The Character Type
+#### The Character Type 字符类型
+
+Rust 的字符类型是语言中提供的最原始也是最原子的类型。以下是字符类型的声明：
 
 Rust’s `char` type is the language’s most primitive alphabetic type. Here are
 some examples of declaring `char` values:
@@ -231,8 +271,16 @@ some examples of declaring `char` values:
 <span class="filename">Filename: src/main.rs</span>
 
 ```rust
-{{#rustdoc_include ../listings/ch03-common-programming-concepts/no-listing-09-char/src/main.rs}}
+fn main() {
+  let c = 'z';
+
+  let z: char = 'Z';
+
+  let heart_eyed_cat = 'cat';
+}
 ```
+
+注意，我们用单引号声明 char 字面量，而与之相反的是，使用双引号声明字符串字面量。Rust 的 char 类型的大小为四个字节 (four bytes)，并代表了一个 Unicode 标量值（Unicode Scalar Value），这意味着它可以比 ASCII 表示更多内容。在 Rust 中，带变音符号的字母（Accented letters），中文、日文、韩文等字符，emoji（绘文字）以及零长度的空白字符都是有效的 char 值。Unicode 标量值包含从 U+0000 到 U+D7FF 和 U+E000 到 U+10FFFF 在内的值。不过，“字符” 并不是一个 Unicode 中的概念，所以人直觉上的 “字符” 可能与 Rust 中的 char 并不符合。第八章的 “使用字符串储存 UTF-8 编码的文本” 中将详细讨论这个主题。
 
 Note that we specify `char` literals with single quotes, as opposed to string
 literals, which use double quotes. Rust’s `char` type is four bytes in size and
