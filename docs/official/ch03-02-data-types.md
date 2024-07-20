@@ -293,16 +293,22 @@ intuition for what a “character” is may not match up with what a `char` is i
 Rust. We’ll discuss this topic in detail in [“Storing UTF-8 Encoded Text with
 Strings”][strings]<!-- ignore --> in Chapter 8.
 
-### Compound Types
+### Compound Types 复合类型
+
+复合类型可以把多种数值放在一个类型中。Rust 有两种原始复合类型：元组和数组。
 
 _Compound types_ can group multiple values into one type. Rust has two
 primitive compound types: tuples and arrays.
 
-#### The Tuple Type
+#### The Tuple Type 元组类型
+
+一个元组是把一组不同类型的值放到一个复合类型中。元组是固定长度：一次声明，元组大小就不能增长和缩小。
 
 A _tuple_ is a general way of grouping together a number of values with a
 variety of types into one compound type. Tuples have a fixed length: once
 declared, they cannot grow or shrink in size.
+
+在花括号中通过逗号分隔一组值来创建元组。元组中每个位置一个类型，元组中的每个值的类型不是必须一样的。在下面例子中我们将增加可选类型注解：
 
 We create a tuple by writing a comma-separated list of values inside
 parentheses. Each position in the tuple has a type, and the types of the
@@ -312,9 +318,12 @@ type annotations in this example:
 <span class="filename">Filename: src/main.rs</span>
 
 ```rust
-{{#rustdoc_include ../listings/ch03-common-programming-concepts/no-listing-10-tuples/src/main.rs}}
+fn main() {
+  let tup: (i32, f64, u8) = (500, 6.4, 1);
+}
 ```
 
+变量`tup`被整个元组赋值，因为元组是单独的复合元素。从元组中获取单个值，我们可以用模式匹配来解构元组的值，如下：
 The variable `tup` binds to the entire tuple because a tuple is considered a
 single compound element. To get the individual values out of a tuple, we can
 use pattern matching to destructure a tuple value, like this:
@@ -322,8 +331,14 @@ use pattern matching to destructure a tuple value, like this:
 <span class="filename">Filename: src/main.rs</span>
 
 ```rust
-{{#rustdoc_include ../listings/ch03-common-programming-concepts/no-listing-11-destructuring-tuples/src/main.rs}}
+fn main() {
+  let tup = (500, 6.4, 1);
+  let (x, y, z) = tup;
+  println!("The value of y is: {y}");
+}
 ```
+
+这个程序首先创建一个元组并赋值给变量`tup`。然后通过模式匹配的方式获取`tup`中的值并赋值给 3 个变量，`x`,`y`,`z`。这就是解构，因为它把一个元组分解为三个部分。最终，程序输出`y`的值为`6.4`。
 
 This program first creates a tuple and binds it to the variable `tup`. It then
 uses a pattern with `let` to take `tup` and turn it into three separate
@@ -331,29 +346,45 @@ variables, `x`, `y`, and `z`. This is called _destructuring_ because it breaks
 the single tuple into three parts. Finally, the program prints the value of
 `y`, which is `6.4`.
 
+我们也允许通过`.`跟着索引来访问值。例如：
 We can also access a tuple element directly by using a period (`.`) followed by
 the index of the value we want to access. For example:
 
 <span class="filename">Filename: src/main.rs</span>
 
 ```rust
-{{#rustdoc_include ../listings/ch03-common-programming-concepts/no-listing-12-tuple-indexing/src/main.rs}}
+fn main() {
+  let x: (i32, f64, u8) = (500, 6.4, 1);
+
+  let five_hundred = x.0;
+
+  let six_point_four = x.1;
+
+  let one = x.2;
+}
 ```
+
+这个程序首先创建一个元组并赋值给变量`tup`，通过索引来访问每个元组元素的值。跟大多出编程语言一样，元组从 0 开始。
 
 This program creates the tuple `x` and then accesses each element of the tuple
 using their respective indices. As with most programming languages, the first
 index in a tuple is 0.
 
+没有值的元组有一个特殊的名字-`单元`元组。它的值及类型都是`()`，表示空值或者空类型。如果表达式不返回其他值，则会隐式的返回单元元组。
 The tuple without any values has a special name, _unit_. This value and its
 corresponding type are both written `()` and represent an empty value or an
 empty return type. Expressions implicitly return the unit value if they don’t
 return any other value.
 
-#### The Array Type
+#### The Array Type 数组类型
+
+另外一种多个值的组合叫做数组。和元组不同，数组中的元素必须有相同的类型。和其他编程语言不同的是，Rust 的数组是固定长度的。
 
 Another way to have a collection of multiple values is with an _array_. Unlike
 a tuple, every element of an array must have the same type. Unlike arrays in
 some other languages, arrays in Rust have a fixed length.
+
+我们将数组的值写成在方括号内，用逗号分隔：
 
 We write the values in an array as a comma-separated list inside square
 brackets:
@@ -361,8 +392,12 @@ brackets:
 <span class="filename">Filename: src/main.rs</span>
 
 ```rust
-{{#rustdoc_include ../listings/ch03-common-programming-concepts/no-listing-13-arrays/src/main.rs}}
+fn main() {
+  let a = [1, 2, 3, 4, 5];
+}
 ```
+
+当你想要在栈而不是在堆上为数据分配空间（第四章将讨论栈与堆的更多内容），或者是想要确保总是有固定数量的元素时，数组非常有用。但是数组并不如向量类型是标准库提供的一个允许增长和缩小长度的类似数组的集合类型。当不确定是应该使用数组还是向量的时候，那么很可能应该使用向量。
 
 Arrays are useful when you want your data allocated on the stack rather than
 the heap (we will discuss the stack and the heap more in [Chapter
@@ -372,6 +407,8 @@ though. A _vector_ is a similar collection type provided by the standard
 library that _is_ allowed to grow or shrink in size. If you’re unsure whether
 to use an array or a vector, chances are you should use a vector. [Chapter
 8][vectors]<!-- ignore --> discusses vectors in more detail.
+
+然而，但你知道元素的个数以及不需要改变的时候，数组非常有用。例如，如果程序里有一组月份的名字，你用数组比用向量好，因为你知道它总是包含 12 个元素：
 
 However, arrays are more useful when you know the number of elements will not
 need to change. For example, if you were using the names of the month in a
@@ -383,6 +420,8 @@ let months = ["January", "February", "March", "April", "May", "June", "July",
               "August", "September", "October", "November", "December"];
 ```
 
+可以像这样编写数组的类型：在方括号中包含每个元素的类型，后跟分号，再后跟数组元素的数量。
+
 You write an array’s type using square brackets with the type of each element,
 a semicolon, and then the number of elements in the array, like so:
 
@@ -390,8 +429,12 @@ a semicolon, and then the number of elements in the array, like so:
 let a: [i32; 5] = [1, 2, 3, 4, 5];
 ```
 
+这里，i32 是每个元素的类型。分号之后，数字 5 表明该数组包含五个元素。
+
 Here, `i32` is the type of each element. After the semicolon, the number `5`
 indicates the array contains five elements.
+
+你还可以通过在方括号中指定初始值加分号再加元素个数的方式来创建一个每个元素都为相同值的数组。
 
 You can also initialize an array to contain the same value for each element by
 specifying the initial value, followed by a semicolon, and then the length of
@@ -401,11 +444,15 @@ the array in square brackets, as shown here:
 let a = [3; 5];
 ```
 
+变量名为 a 的数组将包含 5 个元素，这些元素的值最初都将被设置为 3。这种写法与 let a = [3, 3, 3, 3, 3]; 效果相同，但更简洁。
+
 The array named `a` will contain `5` elements that will all be set to the value
 `3` initially. This is the same as writing `let a = [3, 3, 3, 3, 3];` but in a
 more concise way.
 
-##### Accessing Array Elements
+##### Accessing Array Elements 访问数组元素
+
+数组是可以在栈 (stack) 上分配的已知固定大小的单个内存块。可以使用索引来访问数组的元素，像这样：
 
 An array is a single chunk of memory of a known, fixed size that can be
 allocated on the stack. You can access elements of an array using indexing,
@@ -414,14 +461,23 @@ like this:
 <span class="filename">Filename: src/main.rs</span>
 
 ```rust
-{{#rustdoc_include ../listings/ch03-common-programming-concepts/no-listing-14-array-indexing/src/main.rs}}
+fn main() {
+    let a = [1, 2, 3, 4, 5];
+
+    let first = a[0];
+    let second = a[1];
+}
 ```
+
+在这个例子中，叫做 first 的变量的值是 1，因为它是数组索引 [0] 的值。变量 second 将会是数组索引 [1] 的值 2。
 
 In this example, the variable named `first` will get the value `1` because that
 is the value at index `[0]` in the array. The variable named `second` will get
 the value `2` from index `[1]` in the array.
 
-##### Invalid Array Element Access
+##### Invalid Array Element Access 无效的数组元素访问
+
+让我们看看如果我们访问数组结尾之后的元素会发生什么呢？比如你执行以下代码，它使用类似于第 2 章中的猜数字游戏的代码从用户那里获取数组索引：
 
 Let’s see what happens if you try to access an element of an array that is past
 the end of the array. Say you run this code, similar to the guessing game in
@@ -430,8 +486,31 @@ Chapter 2, to get an array index from the user:
 <span class="filename">Filename: src/main.rs</span>
 
 ```rust,panics
-{{#rustdoc_include ../listings/ch03-common-programming-concepts/no-listing-15-invalid-array-access/src/main.rs}}
+use std::io;
+
+fn main() {
+    let a = [1, 2, 3, 4, 5];
+
+    println!("Please enter an array index.");
+
+    let mut index = String::new();
+
+    io::stdin()
+        .read_line(&mut index)
+        .expect("Failed to read line");
+
+    let index: usize = index
+        .trim()
+        .parse()
+        .expect("Index entered was not a number");
+
+    let element = a[index];
+
+    println!("The value of the element at index {index} is: {element}");
+}
 ```
+
+此代码编译成功。如果您使用 cargo run 运行此代码并输入 0、1、2、3 或 4，程序将在数组中相应索引的值打印出来。如果你输入一个超过数组长度，如 10，你会看到这样的输出：
 
 This code compiles successfully. If you run this code using `cargo run` and
 enter `0`, `1`, `2`, `3`, or `4`, the program will print out the corresponding
@@ -450,6 +529,8 @@ index out of bounds: the len is 5 but the index is 10
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 ```
 
+程序在索引操作中使用一个无效的值时导致 运行时 错误。程序带着错误信息退出，并且没有执行最后的 println! 语句。当尝试用索引访问一个元素时，Rust 会检查指定的索引是否小于数组的长度。如果索引超出了数组长度，Rust 会 panic，这是 Rust 术语，它用于程序因为错误而退出的情况。这种检查必须在运行时进行，特别是在这种情况下，因为编译器不可能知道用户在以后运行代码时将输入什么值。
+
 The program resulted in a _runtime_ error at the point of using an invalid
 value in the indexing operation. The program exited with an error message and
 didn’t execute the final `println!` statement. When you attempt to access an
@@ -458,6 +539,8 @@ than the array length. If the index is greater than or equal to the length,
 Rust will panic. This check has to happen at runtime, especially in this case,
 because the compiler can’t possibly know what value a user will enter when they
 run the code later.
+
+这是第一个在实战中遇到的 Rust 安全原则的例子。在很多底层语言中，并没有进行这类检查，这样当提供了一个不正确的索引时，就会访问无效的内存。通过立即退出而不是允许内存访问并继续执行，Rust 让你避开此类错误。第九章会更详细地讨论 Rust 的错误处理机制，以及如何编写可读性强而又安全的代码，使程序既不会 panic 也不会导致非法内存访问。
 
 This is an example of Rust’s memory safety principles in action. In many
 low-level languages, this kind of check is not done, and when you provide an
