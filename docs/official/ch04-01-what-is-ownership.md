@@ -201,6 +201,8 @@ literal using the `from` function, like so:
 let s = String::from("hello");
 ```
 
+这两个冒号 :: 是运算符，允许将特定的 from 函数置于 String 类型的命名空间（namespace）下，而不需要使用类似 string_from 这样的名字。在第五章的 “方法语法”（“Method Syntax”） 部分会着重讲解这个语法，而且在第七章的 “路径用于引用模块树中的项” 中会讲到模块的命名空间。
+
 The double colon `::` operator allows us to namespace this particular `from`
 function under the `String` type rather than using some sort of name like
 `string_from`. We’ll discuss this syntax more in the [“Method
@@ -208,16 +210,26 @@ Syntax”][method-syntax]<!-- ignore --> section of Chapter 5, and when we talk
 about namespacing with modules in [“Paths for Referring to an Item in the
 Module Tree”][paths-module-tree]<!-- ignore --> in Chapter 7.
 
+可以 修改此类字符串：
+
 This kind of string _can_ be mutated:
 
 ```rust
-{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-01-can-mutate-string/src/main.rs:here}}
+let mut s = String::from("hello");
+
+s.push_str(", world!"); // push_str() 在字符串后追加字面值
+
+println!("{}", s); // 将打印 `hello, world!`
 ```
+
+那么这里有什么区别呢？为什么 String 可变而字面值却不行呢？区别在于两个类型对内存的处理上。
 
 So, what’s the difference here? Why can `String` be mutated but literals
 cannot? The difference is in how these two types deal with memory.
 
-### Memory and Allocation
+### Memory and Allocation 内存与分配
+
+就字符串字面值来说，我们在编译时就知道其内容，所以文本被直接硬编码进最终的可执行文件中。这使得字符串字面值快速且高效。不过这些特性都只得益于字符串字面值的不可变性。不幸的是，我们不能为了每一个在编译时大小未知的文本而将一块内存放入二进制文件中，并且它的大小还可能随着程序运行而改变。
 
 In the case of a string literal, we know the contents at compile time, so the
 text is hardcoded directly into the final executable. This is why string
@@ -226,17 +238,25 @@ literal’s immutability. Unfortunately, we can’t put a blob of memory into th
 binary for each piece of text whose size is unknown at compile time and whose
 size might change while running the program.
 
+对于 String 类型，为了支持一个可变，可增长的文本片段，需要在堆上分配一块在编译时未知大小的内存来存放内容。这意味着：
+
 With the `String` type, in order to support a mutable, growable piece of text,
 we need to allocate an amount of memory on the heap, unknown at compile time,
 to hold the contents. This means:
 
+- 必须在运行时向内存分配器（memory allocator）请求内存。
 - The memory must be requested from the memory allocator at runtime.
+- 需要一个当我们处理完 String 时将内存返回给分配器的方法。
 - We need a way of returning this memory to the allocator when we’re done with
   our `String`.
+
+第一部分由我们完成：当调用 String::from 时，它的实现 (implementation) 请求其所需的内存。这在编程语言中是非常通用的。
 
 That first part is done by us: when we call `String::from`, its implementation
 requests the memory it needs. This is pretty much universal in programming
 languages.
+
+然而，第二部分实现起来就各有区别了。在有 垃圾回收（garbage collector，GC）的语言中，GC 记录并清除不再使用的内存，而我们并不需要关心它。在大部分没有 GC 的语言中，识别出不再使用的内存并调用代码显式释放就是我们的责任了，跟请求内存的时候一样。从历史的角度上说正确处理内存回收曾经是一个困难的编程问题。如果忘记回收了会浪费内存。如果过早回收了，将会出现无效变量。如果重复回收，这也是个 bug。我们需要精确的为一个 allocate 配对一个 free。
 
 However, the second part is different. In languages with a _garbage collector
 (GC)_, the GC keeps track of and cleans up memory that isn’t being used
@@ -248,13 +268,22 @@ we’ll waste memory. If we do it too early, we’ll have an invalid variable. I
 we do it twice, that’s a bug too. We need to pair exactly one `allocate` with
 exactly one `free`.
 
+Rust 采取了一个不同的策略：内存在拥有它的变量离开作用域后就被自动释放。下面是示例 4-1 中作用域例子的一个使用 String 而不是字符串字面值的版本：
+
 Rust takes a different path: the memory is automatically returned once the
 variable that owns it goes out of scope. Here’s a version of our scope example
 from Listing 4-1 using a `String` instead of a string literal:
 
 ```rust
-{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-02-string-scope/src/main.rs:here}}
+{
+    let s = String::from("hello"); // 从此处起，s 是有效的
+
+    // 使用 s
+}                                  // 此作用域已结束，
+                                    // s 不再有效
 ```
+
+这是一个将 String 需要的内存返回给分配器的很自然的位置：当 s 离开作用域的时候。当变量离开作用域，Rust 为我们调用一个特殊的函数。这个函数叫做 drop，在这里 String 的作者可以放置释放内存的代码。Rust 在结尾的 } 处自动调用 drop。
 
 There is a natural point at which we can return the memory our `String` needs
 to the allocator: when `s` goes out of scope. When a variable goes out of
@@ -263,10 +292,13 @@ scope, Rust calls a special function for us. This function is called
 the code to return the memory. Rust calls `drop` automatically at the closing
 curly bracket.
 
+> 注意：在 C++ 中，这种 item 在生命周期结束时释放资源的模式有时被称作 资源获取即初始化（Resource Acquisition Is Initialization (RAII)）。如果你使用过 RAII 模式的话应该对 Rust 的 drop 函数并不陌生。
 > Note: In C++, this pattern of deallocating resources at the end of an item’s
 > lifetime is sometimes called _Resource Acquisition Is Initialization (RAII)_.
 > The `drop` function in Rust will be familiar to you if you’ve used RAII
 > patterns.
+
+这个模式对编写 Rust 代码的方式有着深远的影响。现在它看起来很简单，不过在更复杂的场景下代码的行为可能是不可预测的，比如当有多个变量使用在堆上分配的内存时。现在让我们探索一些这样的场景。
 
 This pattern has a profound impact on the way Rust code is written. It may seem
 simple right now, but the behavior of code can be unexpected in more
@@ -277,17 +309,24 @@ we’ve allocated on the heap. Let’s explore some of those situations now.
 
 <a id="ways-variables-and-data-interact-move"></a>
 
-#### Variables and Data Interacting with Move
+#### Variables and Data Interacting with Move 变量与数据交互的方式（一）：移动
+
+在 Rust 中，多个变量可以采取不同的方式与同一数据进行交互。让我们看看示例 4-2 中一个使用整型的例子。
 
 Multiple variables can interact with the same data in different ways in Rust.
 Let’s look at an example using an integer in Listing 4-2.
 
 ```rust
-{{#rustdoc_include ../listings/ch04-understanding-ownership/listing-04-02/src/main.rs:here}}
+let x = 5;
+let y = x;
 ```
 
-<span class="caption">Listing 4-2: Assigning the integer value of variable `x`
+<span class="caption">
+示例 4-2：将变量 x 的整数值赋给 y
+Listing 4-2: Assigning the integer value of variable `x`
 to `y`</span>
+
+我们大致可以猜到这在干什么：“将 5 绑定到 x；接着生成一个值 x 的拷贝并绑定到 y”。现在有了两个变量，x 和 y，都等于 5。这也正是事实上发生了的，因为整数是有已知固定大小的简单值，所以这两个 5 被放入了栈中。
 
 We can probably guess what this is doing: “bind the value `5` to `x`; then make
 a copy of the value in `x` and bind it to `y`.” We now have two variables, `x`
@@ -295,15 +334,22 @@ and `y`, and both equal `5`. This is indeed what is happening, because integers
 are simple values with a known, fixed size, and these two `5` values are pushed
 onto the stack.
 
+现在看看这个 String 版本：
+
 Now let’s look at the `String` version:
 
 ```rust
-{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-03-string-move/src/main.rs:here}}
+let s1 = String::from("hello");
+let s2 = s1;
 ```
+
+这看起来与上面的代码非常类似，所以我们可能会假设它们的运行方式也是类似的：也就是说，第二行可能会生成一个 s1 的拷贝并绑定到 s2 上。不过，事实上并不完全是这样。
 
 This looks very similar, so we might assume that the way it works would be the
 same: that is, the second line would make a copy of the value in `s1` and bind
 it to `s2`. But this isn’t quite what happens.
+
+看看图 4-1 以了解 String 的底层会发生什么。String 由三部分组成，如图左侧所示：一个指向存放字符串内容内存的指针，一个长度，和一个容量。这一组数据存储在栈上。右侧则是堆上存放内容的内存部分。
 
 Take a look at Figure 4-1 to see what is happening to `String` under the
 covers. A `String` is made up of three parts, shown on the left: a pointer to
@@ -317,14 +363,20 @@ value in the second table. The second table contains the representation of the
 string data on the heap, byte by byte." src="img/trpl04-01.svg" class="center"
 style="width: 50%;" />
 
-<span class="caption">Figure 4-1: Representation in memory of a `String`
+<span class="caption">
+图 4-1：将值 "hello" 绑定给 s1 的 String 在内存中的表现形式
+Figure 4-1: Representation in memory of a `String`
 holding the value `"hello"` bound to `s1`</span>
+
+长度表示 String 的内容当前使用了多少字节的内存。容量是 String 从分配器总共获取了多少字节的内存。长度与容量的区别是很重要的，不过在当前上下文中并不重要，所以现在可以忽略容量。
 
 The length is how much memory, in bytes, the contents of the `String` are
 currently using. The capacity is the total amount of memory, in bytes, that the
 `String` has received from the allocator. The difference between length and
 capacity matters, but not in this context, so for now, it’s fine to ignore the
 capacity.
+
+当我们将 s1 赋值给 s2，String 的数据被复制了，这意味着我们从栈上拷贝了它的指针、长度和容量。我们并没有复制指针指向的堆上数据。换句话说，内存中数据的表现如图 4-2 所示。
 
 When we assign `s1` to `s2`, the `String` data is copied, meaning we copy the
 pointer, the length, and the capacity that are on the stack. We do not copy the
@@ -335,8 +387,12 @@ representation in memory looks like Figure 4-2.
 stack, respectively, and both pointing to the same string data on the heap."
 src="img/trpl04-02.svg" class="center" style="width: 50%;" />
 
-<span class="caption">Figure 4-2: Representation in memory of the variable `s2`
+<span class="caption">
+图 4-2：变量 s2 的内存表现，它有一份 s1 指针、长度和容量的拷贝
+Figure 4-2: Representation in memory of the variable `s2`
 that has a copy of the pointer, length, and capacity of `s1`</span>
+
+这个表现形式看起来 并不像 图 4-3 中的那样，如果 Rust 也拷贝了堆上的数据，那么内存看起来就是这样的。如果 Rust 这么做了，那么操作 s2 = s1 在堆上数据比较大的时候会对运行时性能造成非常大的影响。
 
 The representation does _not_ look like Figure 4-3, which is what memory would
 look like if Rust instead copied the heap data as well. If Rust did this, the
@@ -347,8 +403,12 @@ the data on the heap were large.
 and each points to its own copy of string data on the heap."
 src="img/trpl04-03.svg" class="center" style="width: 50%;" />
 
-<span class="caption">Figure 4-3: Another possibility for what `s2 = s1` might
+<span class="caption">
+图 4-3：另一个 s2 = s1 时可能的内存表现，如果 Rust 同时也拷贝了堆上的数据的话
+Figure 4-3: Another possibility for what `s2 = s1` might
 do if Rust copied the heap data as well</span>
+
+之前我们提到过当变量离开作用域后，Rust 自动调用 drop 函数并清理变量的堆内存。不过图 4-2 展示了两个数据指针指向了同一位置。这就有了一个问题：当 s2 和 s1 离开作用域，它们都会尝试释放相同的内存。这是一个叫做 二次释放（double free）的错误，也是之前提到过的内存安全性 bug 之一。两次释放（相同）内存会导致内存污染，它可能会导致潜在的安全漏洞。
 
 Earlier, we said that when a variable goes out of scope, Rust automatically
 calls the `drop` function and cleans up the heap memory for that variable. But
@@ -358,21 +418,50 @@ same memory. This is known as a _double free_ error and is one of the memory
 safety bugs we mentioned previously. Freeing memory twice can lead to memory
 corruption, which can potentially lead to security vulnerabilities.
 
+为了确保内存安全，在 let s2 = s1; 之后，Rust 认为 s1 不再有效，因此 Rust 不需要在 s1 离开作用域后清理任何东西。看看在 s2 被创建之后尝试使用 s1 会发生什么；这段代码不能运行：
+
 To ensure memory safety, after the line `let s2 = s1;`, Rust considers `s1` as
 no longer valid. Therefore, Rust doesn’t need to free anything when `s1` goes
 out of scope. Check out what happens when you try to use `s1` after `s2` is
 created; it won’t work:
 
 ```rust
-{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-04-cant-use-after-move/src/main.rs:here}}
+let s1 = String::from("hello");
+let s2 = s1;
+
+println!("{s1}, world!");
 ```
+
+你会得到一个类似如下的错误，因为 Rust 禁止你使用无效的引用。
 
 You’ll get an error like this because Rust prevents you from using the
 invalidated reference:
 
 ```console
-{{#include ../listings/ch04-understanding-ownership/no-listing-04-cant-use-after-move/output.txt}}
+$ cargo run
+   Compiling ownership v0.1.0 (file:///projects/ownership)
+error[E0382]: borrow of moved value: `s1`
+ --> src/main.rs:5:15
+  |
+2 |     let s1 = String::from("hello");
+  |         -- move occurs because `s1` has type `String`, which does not implement the `Copy` trait
+3 |     let s2 = s1;
+  |              -- value moved here
+4 |
+5 |     println!("{s1}, world!");
+  |               ^^^^ value borrowed here after move
+  |
+  = note: this error originates in the macro `$crate::format_args_nl` which comes from the expansion of the macro `println` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider cloning the value if the performance cost is acceptable
+  |
+3 |     let s2 = s1.clone();
+  |                ++++++++
+
+For more information about this error, try `rustc --explain E0382`.
+error: could not compile `ownership` (bin "ownership") due to 1 previous error
 ```
+
+如果你在其他语言中听说过术语 浅拷贝（shallow copy）和 深拷贝（deep copy），那么拷贝指针、长度和容量而不拷贝数据可能听起来像浅拷贝。不过因为 Rust 同时使第一个变量无效了，这个操作被称为 移动（move），而不是叫做浅拷贝。上面的例子可以解读为 s1 被 移动 到了 s2 中。那么具体发生了什么，如图 4-4 所示。
 
 If you’ve heard the terms _shallow copy_ and _deep copy_ while working with
 other languages, the concept of copying the pointer, length, and capacity
@@ -387,11 +476,17 @@ Table s1 is grayed out be-cause s1 is no longer valid; only s2 can be used to
 access the heap data." src="img/trpl04-04.svg" class="center" style="width:
 50%;" />
 
-<span class="caption">Figure 4-4: Representation in memory after `s1` has been
+<span class="caption">
+图 4-4：s1 无效之后的内存表现
+Figure 4-4: Representation in memory after `s1` has been
 invalidated</span>
+
+这样就解决了我们的问题！因为只有 s2 是有效的，当其离开作用域，它就释放自己的内存，完毕。
 
 That solves our problem! With only `s2` valid, when it goes out of scope it
 alone will free the memory, and we’re done.
+
+另外，这里还隐含了一个设计选择：Rust 永远也不会自动创建数据的 “深拷贝”。因此，任何 自动 的复制都可以被认为是对运行时性能影响较小的。
 
 In addition, there’s a design choice that’s implied by this: Rust will never
 automatically create “deep” copies of your data. Therefore, any _automatic_
@@ -401,37 +496,57 @@ copying can be assumed to be inexpensive in terms of runtime performance.
 
 <a id="ways-variables-and-data-interact-clone"></a>
 
-#### Variables and Data Interacting with Clone
+#### Variables and Data Interacting with Clone 变量与数据交互的方式（二）：克隆
+
+如果我们 确实 需要深拷贝 String 中堆上的数据，而不仅仅是栈上的数据，可以使用一个叫做 clone 的通用函数。第五章会讨论方法语法，不过因为方法在很多语言中是一个常见功能，所以之前你可能已经见过了。
 
 If we _do_ want to deeply copy the heap data of the `String`, not just the
 stack data, we can use a common method called `clone`. We’ll discuss method
 syntax in Chapter 5, but because methods are a common feature in many
 programming languages, you’ve probably seen them before.
 
+这是一个实际使用 clone 方法的例子：
+
 Here’s an example of the `clone` method in action:
 
 ```rust
-{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-05-clone/src/main.rs:here}}
+let s1 = String::from("hello");
+let s2 = s1.clone();
+
+println!("s1 = {s1}, s2 = {s2}");
 ```
+
+这段代码能正常运行，并且明确产生图 4-3 中行为，这里堆上的数据 确实 被复制了。
 
 This works just fine and explicitly produces the behavior shown in Figure 4-3,
 where the heap data _does_ get copied.
+
+当出现 clone 调用时，你知道一些特定的代码被执行而且这些代码可能相当消耗资源。你很容易察觉到一些不寻常的事情正在发生。
 
 When you see a call to `clone`, you know that some arbitrary code is being
 executed and that code may be expensive. It’s a visual indicator that something
 different is going on.
 
-#### Stack-Only Data: Copy
+#### Stack-Only Data: Copy 只在栈上的数据：拷贝
+
+这里还有一个没有提到的小窍门。这些代码使用了整型并且是有效的，它们是示例 4-2 中的一部分：
 
 There’s another wrinkle we haven’t talked about yet. This code using
 integers—part of which was shown in Listing 4-2—works and is valid:
 
 ```rust
-{{#rustdoc_include ../listings/ch04-understanding-ownership/no-listing-06-copy/src/main.rs:here}}
+    let x = 5;
+    let y = x;
+
+    println!("x = {x}, y = {y}");
 ```
+
+但这段代码似乎与我们刚刚学到的内容相矛盾：没有调用 clone，不过 x 依然有效且没有被移动到 y 中。
 
 But this code seems to contradict what we just learned: we don’t have a call to
 `clone`, but `x` is still valid and wasn’t moved into `y`.
+
+原因是像整型这样的在编译时已知大小的类型被整个存储在栈上，所以拷贝其实际的值是快速的。这意味着没有理由在创建变量 y 后使 x 无效。换句话说，这里没有深浅拷贝的区别，所以这里调用 clone 并不会与通常的浅拷贝有什么不同，我们可以不用管它。
 
 The reason is that types such as integers that have a known size at compile
 time are stored entirely on the stack, so copies of the actual values are quick
@@ -440,11 +555,15 @@ valid after we create the variable `y`. In other words, there’s no difference
 between deep and shallow copying here, so calling `clone` wouldn’t do anything
 different from the usual shallow copying, and we can leave it out.
 
+Rust 有一个叫做 Copy trait 的特殊注解，可以用在类似整型这样的存储在栈上的类型上（第十章将会详细讲解 trait）。如果一个类型实现了 Copy trait，那么一个旧的变量在将其赋值给其他变量后仍然可用。
+
 Rust has a special annotation called the `Copy` trait that we can place on
 types that are stored on the stack, as integers are (we’ll talk more about
 traits in [Chapter 10][traits]<!-- ignore -->). If a type implements the `Copy`
 trait, variables that use it do not move, but rather are trivially copied,
 making them still valid after assignment to another variable.
+
+Rust 不允许自身或其任何部分实现了 Drop trait 的类型使用 Copy trait。如果我们对其值离开作用域时需要特殊处理的类型使用 Copy 注解，将会出现一个编译时错误。要学习如何为你的类型添加 Copy 注解以实现该 trait，请阅读附录 C 中的 “可派生的 trait”。
 
 Rust won’t let us annotate a type with `Copy` if the type, or any of its parts,
 has implemented the `Drop` trait. If the type needs something special to happen
@@ -453,20 +572,24 @@ we’ll get a compile-time error. To learn about how to add the `Copy` annotatio
 to your type to implement the trait, see [“Derivable
 Traits”][derivable-traits]<!-- ignore --> in Appendix C.
 
+那么哪些类型实现了 Copy trait 呢？你可以查看给定类型的文档来确认，不过作为一个通用的规则，任何一组简单标量值的组合都可以实现 Copy，任何不需要分配内存或某种形式资源的类型都可以实现 Copy 。如下是一些 Copy 的类型：
+
 So, what types implement the `Copy` trait? You can check the documentation for
 the given type to be sure, but as a general rule, any group of simple scalar
 values can implement `Copy`, and nothing that requires allocation or is some
 form of resource can implement `Copy`. Here are some of the types that
 implement `Copy`:
 
-- All the integer types, such as `u32`.
-- The Boolean type, `bool`, with values `true` and `false`.
-- All the floating-point types, such as `f64`.
-- The character type, `char`.
+- All the integer types, such as `u32`.所有整数类型，比如 u32。
+- The Boolean type, `bool`, with values `true` and `false`.布尔类型，bool，它的值是 true 和 false。
+- All the floating-point types, such as `f64`.所有浮点数类型，比如 f64。
+- The character type, `char`.字符类型，char。
 - Tuples, if they only contain types that also implement `Copy`. For example,
-  `(i32, i32)` implements `Copy`, but `(i32, String)` does not.
+  `(i32, i32)` implements `Copy`, but `(i32, String)` does not.元组，当且仅当其包含的类型也都实现 Copy 的时候。比如，(i32, i32) 实现了 Copy，但 (i32, String) 就没有。
 
-### Ownership and Functions
+### Ownership and Functions 所有权与函数
+
+将值传递给函数与给变量赋值的原理相似。向函数传递值可能会移动或者复制，就像赋值语句一样。示例 4-3 使用注释展示变量何时进入和离开作用域：
 
 The mechanics of passing a value to a function are similar to those when
 assigning a value to a variable. Passing a variable to a function will move or
@@ -476,18 +599,46 @@ showing where variables go into and out of scope.
 <span class="filename">Filename: src/main.rs</span>
 
 ```rust
-{{#rustdoc_include ../listings/ch04-understanding-ownership/listing-04-03/src/main.rs}}
+fn main() {
+    let s = String::from("hello");  // s 进入作用域
+
+    takes_ownership(s);             // s 的值移动到函数里 ...
+                                    // ... 所以到这里不再有效
+
+    let x = 5;                      // x 进入作用域
+
+    makes_copy(x);                  // x 应该移动函数里，
+                                    // 但 i32 是 Copy 的，
+                                    // 所以在后面可继续使用 x
+
+} // 这里，x 先移出了作用域，然后是 s。但因为 s 的值已被移走，
+  // 没有特殊之处
+
+fn takes_ownership(some_string: String) { // some_string 进入作用域
+    println!("{}", some_string);
+} // 这里，some_string 移出作用域并调用 `drop` 方法。
+  // 占用的内存被释放
+
+fn makes_copy(some_integer: i32) { // some_integer 进入作用域
+    println!("{}", some_integer);
+} // 这里，some_integer 移出作用域。没有特殊之处
 ```
 
-<span class="caption">Listing 4-3: Functions with ownership and scope
+<span class="caption">
+示例 4-3：带有所有权和作用域注释的函数
+Listing 4-3: Functions with ownership and scope
 annotated</span>
+
+当尝试在调用 takes_ownership 后使用 s 时，Rust 会抛出一个编译时错误。这些静态检查使我们免于犯错。试试在 main 函数中添加使用 s 和 x 的代码来看看哪里能使用它们，以及所有权规则会在哪里阻止我们这么做。
 
 If we tried to use `s` after the call to `takes_ownership`, Rust would throw a
 compile-time error. These static checks protect us from mistakes. Try adding
 code to `main` that uses `s` and `x` to see where you can use them and where
 the ownership rules prevent you from doing so.
 
-### Return Values and Scope
+### Return Values and Scope 返回值与作用域
+
+返回值也可以转移所有权。示例 4-4 展示了一个返回了某些值的示例，与示例 4-3 一样带有类似的注释。
 
 Returning values can also transfer ownership. Listing 4-4 shows an example of a
 function that returns some value, with similar annotations as those in Listing
@@ -496,16 +647,50 @@ function that returns some value, with similar annotations as those in Listing
 <span class="filename">Filename: src/main.rs</span>
 
 ```rust
-{{#rustdoc_include ../listings/ch04-understanding-ownership/listing-04-04/src/main.rs}}
+fn main() {
+    let s1 = gives_ownership();         // gives_ownership 将返回值
+                                        // 转移给 s1
+
+    let s2 = String::from("hello");     // s2 进入作用域
+
+    let s3 = takes_and_gives_back(s2);  // s2 被移动到
+                                        // takes_and_gives_back 中，
+                                        // 它也将返回值移给 s3
+} // 这里，s3 移出作用域并被丢弃。s2 也移出作用域，但已被移走，
+  // 所以什么也不会发生。s1 离开作用域并被丢弃
+
+fn gives_ownership() -> String {             // gives_ownership 会将
+                                             // 返回值移动给
+                                             // 调用它的函数
+
+    let some_string = String::from("yours"); // some_string 进入作用域。
+
+    some_string                              // 返回 some_string
+                                             // 并移出给调用的函数
+                                             //
+}
+
+// takes_and_gives_back 将传入字符串并返回该值
+fn takes_and_gives_back(a_string: String) -> String { // a_string 进入作用域
+                                                      //
+
+    a_string  // 返回 a_string 并移出给调用的函数
+}
 ```
 
-<span class="caption">Listing 4-4: Transferring ownership of return
+<span class="caption">
+示例 4-4: 转移返回值的所有权
+Listing 4-4: Transferring ownership of return
 values</span>
+
+变量的所有权总是遵循相同的模式：将值赋给另一个变量时移动它。当持有堆中数据值的变量离开作用域时，其值将通过 drop 被清理掉，除非数据被移动为另一个变量所有。
 
 The ownership of a variable follows the same pattern every time: assigning a
 value to another variable moves it. When a variable that includes data on the
 heap goes out of scope, the value will be cleaned up by `drop` unless ownership
 of the data has been moved to another variable.
+
+虽然这样是可以的，但是在每一个函数中都获取所有权并接着返回所有权有些啰嗦。如果我们想要函数使用一个值但不获取所有权该怎么办呢？如果我们还要接着使用它的话，每次都传进去再返回来就有点烦人了，除此之外，我们也可能想返回函数体中产生的一些数据。
 
 While this works, taking ownership and then returning ownership with every
 function is a bit tedious. What if we want to let a function use a value but
@@ -513,15 +698,33 @@ not take ownership? It’s quite annoying that anything we pass in also needs to
 be passed back if we want to use it again, in addition to any data resulting
 from the body of the function that we might want to return as well.
 
+我们可以使用元组来返回多个值，如示例 4-5 所示。
+
 Rust does let us return multiple values using a tuple, as shown in Listing 4-5.
 
 <span class="filename">Filename: src/main.rs</span>
 
 ```rust
-{{#rustdoc_include ../listings/ch04-understanding-ownership/listing-04-05/src/main.rs}}
+fn main() {
+    let s1 = String::from("hello");
+
+    let (s2, len) = calculate_length(s1);
+
+    println!("The length of '{}' is {}.", s2, len);
+}
+
+fn calculate_length(s: String) -> (String, usize) {
+    let length = s.len(); // len() 返回字符串的长度
+
+    (s, length)
+}
 ```
 
-<span class="caption">Listing 4-5: Returning ownership of parameters</span>
+<span class="caption">
+示例 4-5: 返回参数的所有权
+Listing 4-5: Returning ownership of parameters</span>
+
+但是这未免有些形式主义，而且这种场景应该很常见。幸运的是，Rust 对此提供了一个不用获取所有权就可以使用值的功能，叫做 引用（references）。
 
 But this is too much ceremony and a lot of work for a concept that should be
 common. Luckily for us, Rust has a feature for using a value without
