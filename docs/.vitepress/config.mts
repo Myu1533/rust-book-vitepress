@@ -40,7 +40,7 @@ export default defineConfig({
             ],
           },
           {
-            text: "Programming a Guessing Game",
+            text: "2.Programming a Guessing Game",
             link: "/official/ch02-00-guessing-game-tutorial",
           },
           {
@@ -83,7 +83,7 @@ export default defineConfig({
               },
               {
                 text: "4.3.The Slice Type",
-                link: "/official/ch04-03-slice",
+                link: "/official/ch04-03-slices",
               },
             ],
           },
