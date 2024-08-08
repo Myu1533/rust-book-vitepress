@@ -636,11 +636,15 @@ This error points out that we’re only allowed to use the `?` operator in a
 function that returns `Result`, `Option`, or another type that implements
 `FromResidual`.
 
+为了修复这个错误，有两个选择。一个是，如果没有限制的话将函数的返回值改为 Result<T, E>。另一个是使用 match 或 Result<T, E> 的方法中合适的一个来处理 Result<T, E>。
+
 To fix the error, you have two choices. One choice is to change the return type
 of your function to be compatible with the value you’re using the `?` operator
 on as long as you have no restrictions preventing that. The other technique is
 to use a `match` or one of the `Result<T, E>` methods to handle the `Result<T,
 E>` in whatever way is appropriate.
+
+错误信息也提到 ? 也可用于 Option<T> 值。如同对 Result 使用 ? 一样，只能在返回 Option 的函数中对 Option 使用 ?。在 Option<T> 上调用 ? 运算符的行为与 Result<T, E> 类似：如果值是 None，此时 None 会从函数中提前返回。如果值是 Some，Some 中的值作为表达式的返回值同时函数继续。示例 9-11 中有一个从给定文本中返回第一行最后一个字符的函数的例子：
 
 The error message also mentioned that `?` can be used with `Option<T>` values
 as well. As with using `?` on `Result`, you can only use `?` on `Option` in a
@@ -653,11 +657,17 @@ an example of a function that finds the last character of the first line in the
 given text:
 
 ```rust
-{{#rustdoc_include ../listings/ch09-error-handling/listing-09-11/src/main.rs:here}}
+fn last_char_of_first_line(text: &str) -> Option<char> {
+    text.lines().next()?.chars().last()
+}
 ```
 
-<span class="caption">Listing 9-11: Using the `?` operator on an `Option<T>`
+<span class="caption">
+示例 9-11: 在 Option<T> 值上使用 ? 运算符
+Listing 9-11: Using the `?` operator on an `Option<T>`
 value</span>
+
+这个函数返回 Option<char> 因为它可能会在这个位置找到一个字符，也可能没有字符。这段代码获取 text 字符串 slice 作为参数并调用其 lines 方法，这会返回一个字符串中每一行的迭代器。因为函数希望检查第一行，所以调用了迭代器 next 来获取迭代器中第一个值。如果 text 是空字符串，next 调用会返回 None，此时我们可以使用 ? 来停止并从 last_char_of_first_line 返回 None。如果 text 不是空字符串，next 会返回一个包含 text 中第一行的字符串 slice 的 Some 值。
 
 This function returns `Option<char>` because it’s possible that there is a
 character there, but it’s also possible that there isn’t. This code takes the
@@ -668,6 +678,8 @@ from the iterator. If `text` is the empty string, this call to `next` will
 return `None`, in which case we use `?` to stop and return `None` from
 `last_char_of_first_line`. If `text` is not the empty string, `next` will
 return a `Some` value containing a string slice of the first line in `text`.
+
+? 会提取这个字符串 slice，然后可以在字符串 slice 上调用 chars 来获取字符的迭代器。我们感兴趣的是第一行的最后一个字符，所以可以调用 last 来返回迭代器的最后一项。这是一个 Option，因为有可能第一行是一个空字符串，例如 text 以一个空行开头而后面的行有文本，像是 "\nhi"。不过，如果第一行有最后一个字符，它会返回在一个 Some 成员中。? 运算符作用于其中给了我们一个简洁的表达这种逻辑的方式。如果我们不能在 Option 上使用 ? 运算符，则不得不使用更多的方法调用或者 match 表达式来实现这些逻辑。
 
 The `?` extracts the string slice, and we can call `chars` on that string slice
 to get an iterator of its characters. We’re interested in the last character in
@@ -680,6 +692,8 @@ gives us a concise way to express this logic, allowing us to implement the
 function in one line. If we couldn’t use the `?` operator on `Option`, we’d
 have to implement this logic using more method calls or a `match` expression.
 
+注意你可以在返回 Result 的函数中对 Result 使用 ? 运算符，可以在返回 Option 的函数中对 Option 使用 ? 运算符，但是不可以混合搭配。? 运算符不会自动将 Result 转化为 Option，反之亦然；在这些情况下，可以使用类似 Result 的 ok 方法或者 Option 的 ok_or 方法来显式转换。
+
 Note that you can use the `?` operator on a `Result` in a function that returns
 `Result`, and you can use the `?` operator on an `Option` in a function that
 returns `Option`, but you can’t mix and match. The `?` operator won’t
@@ -687,10 +701,14 @@ automatically convert a `Result` to an `Option` or vice versa; in those cases,
 you can use methods like the `ok` method on `Result` or the `ok_or` method on
 `Option` to do the conversion explicitly.
 
+目前为止，我们所使用的所有 main 函数都返回 ()。main 函数是特殊的因为它是可执行程序的入口点和退出点，为了使程序能正常工作，其可以返回的类型是有限制的。
+
 So far, all the `main` functions we’ve used return `()`. The `main` function is
 special because it’s the entry and exit point of executable programs, and there
 are restrictions on what its return type can be for the programs to behave as
 expected.
+
+幸运的是 main 函数也可以返回 Result<(), E>，示例 9-12 中的代码来自示例 9-10 不过修改了 main 的返回值为 Result<(), Box<dyn Error>> 并在结尾增加了一个 Ok(()) 作为返回值。这段代码可以编译：
 
 Luckily, `main` can also return a `Result<(), E>`. Listing 9-12 has the
 code from Listing 9-10 but we’ve changed the return type of `main` to be
@@ -698,11 +716,22 @@ code from Listing 9-10 but we’ve changed the return type of `main` to be
 code will now compile:
 
 ```rust
-{{#rustdoc_include ../listings/ch09-error-handling/listing-09-12/src/main.rs}}
+use std::error::Error;
+use std::fs::File;
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let greeting_file = File::open("hello.txt")?;
+
+    Ok(())
+}
 ```
 
-<span class="caption">Listing 9-12: Changing `main` to return `Result<(), E>`
+<span class="caption">
+示例 9-12: 修改 main 返回 Result<(), E> 允许对 Result 值使用 ? 运算符
+Listing 9-12: Changing `main` to return `Result<(), E>`
 allows the use of the `?` operator on `Result` values</span>
+
+Box<dyn Error> 类型是一个 trait 对象（trait object）第十七章 顾及不同类型值的 trait 对象” 部分会做介绍。目前可以将 Box<dyn Error> 理解为 “任何类型的错误”。在返回 Box<dyn Error> 错误类型 main 函数中对 Result 使用 ? 是允许的，因为它允许任何 Err 值提前返回。即便 main 函数体从来只会返回 std::io::Error 错误类型，通过指定 Box<dyn Error>，这个签名也仍是正确的，甚至当 main 函数体中增加更多返回其他错误类型的代码时也是如此。
 
 The `Box<dyn Error>` type is a _trait object_, which we’ll talk about in the
 [“Using Trait Objects that Allow for Values of Different
@@ -714,6 +743,8 @@ this `main` function will only ever return errors of type `std::io::Error`, by
 specifying `Box<dyn Error>`, this signature will continue to be correct even if
 more code that returns other errors is added to the body of `main`.
 
+当 main 函数返回 Result<(), E>，如果 main 返回 Ok(()) 可执行程序会以 0 值退出，而如果 main 返回 Err 值则会以非零值退出；成功退出的程序会返回整数 0，运行错误的程序会返回非 0 的整数。Rust 也会从二进制程序中返回与这个惯例相兼容的整数。
+
 When a `main` function returns a `Result<(), E>`, the executable will
 exit with a value of `0` if `main` returns `Ok(())` and will exit with a
 nonzero value if `main` returns an `Err` value. Executables written in C return
@@ -721,11 +752,15 @@ integers when they exit: programs that exit successfully return the integer
 `0`, and programs that error return some integer other than `0`. Rust also
 returns integers from executables to be compatible with this convention.
 
+main 函数也可以返回任何实现了 std::process::Termination trait 的类型，它包含了一个返回 ExitCode 的 report 函数。请查阅标准库文档了解更多为自定义类型实现 Termination trait 的细节。
+
 The `main` function may return any types that implement [the
 `std::process::Termination` trait][termination]<!-- ignore -->, which contains
 a function `report` that returns an `ExitCode`. Consult the standard library
 documentation for more information on implementing the `Termination` trait for
 your own types.
+
+现在我们讨论过了调用 panic! 或返回 Result 的细节，是时候回到它们各自适合哪些场景的话题了。
 
 Now that we’ve discussed the details of calling `panic!` or returning `Result`,
 let’s return to the topic of how to decide which is appropriate to use in which
